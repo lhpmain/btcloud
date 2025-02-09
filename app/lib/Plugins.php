@@ -58,7 +58,7 @@ class Plugins
             $data['uid'] = 1;
             $data['skey'] = '';
             $data['pro'] = -1;
-            $data['ltd'] = strtotime('+10 year');
+            $data['ltd'] = strtotime('+100 年之前');
         }
         foreach($data['list'] as &$plugin){
             if(isset($plugin['endtime'])) $plugin['endtime'] = 0;
