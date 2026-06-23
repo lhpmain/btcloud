@@ -17,7 +17,7 @@
 
 ## 环境要求
 
-* `PHP` >= 7.4
+* `PHP` >= 8.0
 * `MySQL` >= 5.6
 * `fileinfo`扩展
 * `ZipArchive`扩展

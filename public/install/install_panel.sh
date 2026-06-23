@@ -875,7 +875,7 @@ get_node_url(){
 	if [ "$?" == "0" ];then
 		CN_CHECK=$(curl -sS --connect-timeout 10 -m 10 https://api.bt.cn/api/isCN)
 		if [ "${CN_CHECK}" == "True" ];then
-			nodes=(https://dg2.bt.cn https://download.bt.cn https://download-cdn1.bt.cn https://ctcc1-node.bt.cn https://cmcc1-node.bt.cn http://download-cdn1.bt.cn https://ctcc2-node.bt.cn https://hk1-node.bt.cn);
+			nodes=(https://dg2.bt.cn https://download-cdn1.bt.cn https://download.bt.cn https://ctcc1-node.bt.cn https://cmcc1-node.bt.cn http://download-cdn1.bt.cn https://ctcc2-node.bt.cn https://hk1-node.bt.cn);
 		else
 			PING6_CHECK=$(ping6 -c 2 -W 2 download.bt.cn &> /dev/null && echo "yes" || echo "no")
 			if [ "${PING6_CHECK}" == "yes" ];then
@@ -1626,16 +1626,21 @@ Set_Bt_Panel(){
 		if [ ! -f "/www/server/panel/pyenv/n.pl" ];then
         	btpip install -I pyOpenSSl 2>/dev/null
     	fi
-    	echo "========================================"
-    	echo "正在开启面板SSL，请稍等............ "
-    	echo "========================================"
-        SSL_STATUS=$(btpython /www/server/panel/tools.py ssl)
-        if [ "${SSL_STATUS}" == "0" ] ;then
-        	echo -n " -4 " > /www/server/panel/data/v4.pl
-        	btpython /www/server/panel/tools.py ssl
-        fi
-    	echo "证书开启成功！"
-    	echo "========================================"
+    	# echo "========================================"
+    	# echo "正在开启面板SSL，请稍等............ "
+    	# echo "========================================"
+		CERT_FILE="/www/server/panel/ssl/certificate.pem"
+		echo -n " -4 " > /www/server/panel/data/v4.pl
+		if [ ! -f "${CERT_FILE}" ]; then
+        	SSL_STATUS=$(btpython /www/server/panel/tools.py ssl)
+        	if [ "${SSL_STATUS}" == "0" ] ;then
+        		btpython /www/server/panel/tools.py ssl
+        	fi
+		else
+			echo -n "True" > /www/server/panel/data/ssl.pl
+		fi
+    	# echo "证书开启成功！"
+    	# echo "========================================"
     fi
 # 	btpip install Flask-SQLAlchemy==2.5.1 SQLAlchemy==1.3.24
 	/etc/init.d/bt stop

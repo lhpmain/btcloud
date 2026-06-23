@@ -20,6 +20,8 @@
 
 - 全局搜索替换 https://www.bt.cn/newapi/ => http://www.example.com/newapi/
 
+  https://www.bt.cn/system/api/ => http://www.example.com/system/api/
+
 - 全局搜索替换 https://download.bt.cn/install/update6.sh => http://www.example.com/install/update6.sh
 
   http://download.bt.cn/install/update6.sh => http://www.example.com/install/update6.sh
@@ -59,6 +61,8 @@
   在get_free_ip_info方法内，获取IP的部分改成res = get_ips_area([address])
 
   在login_send_body方法内，free_login_area(login_ip=server_ip_area的server_ip_area改成login_ip
+
+  在check_area_panel方法内 尝试云端获取 删除，只保留ip_area_dict = get_ip_location(client_ip)
 
 - class/panelPlugin.py 文件
 
@@ -144,6 +148,8 @@
   这3行及分别接下来的4行代码
 
   def get_view_title_content(self, get): 下面加上 return public.returnMsg(True, '')
+
+  ignore_upgrade_cert.pl部分
 
 - [可选]关闭未绑定域名提示页面：在class/panelSite.py，root /www/server/nginx/html改成return 400
 

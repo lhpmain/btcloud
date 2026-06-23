@@ -74,7 +74,7 @@ class Admin extends BaseController
         $tmp = 'version()';
         $mysqlVersion = Db::query("select version()")[0][$tmp];
         $info = [
-            'framework_version' => app()::VERSION,
+            'framework_version' => app()->version(),
             'php_version' => PHP_VERSION,
             'mysql_version' => $mysqlVersion,
             'software' => $_SERVER['SERVER_SOFTWARE'],

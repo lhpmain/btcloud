@@ -111,6 +111,7 @@ Route::group('api', function () {
     Route::post('/ip/info', 'api/get_ip_info');
     Route::post('/ip/info_json', 'api/get_ip_info');
     Route::post('/panel/get_ip_info', 'api/get_ip_info');
+    Route::post('/v2/panel/get_ip_info', 'api/get_ip_info');
 
     Route::post('/LinuxBeta', 'api/return_error');
     Route::post('/panel/apple_beta', 'api/return_error');
