@@ -208,17 +208,14 @@ class ThirdPlugins
         curl_exec($ch);
 		if (curl_errno($ch)) {
 			$message = curl_error($ch);
-			curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：'.$message);
 		}
 		$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 		if($httpcode>299){
-			curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：HTTPCODE-'.$httpcode);
 		}
-        curl_close($ch);
 		fclose($fp);
         return true;
     }

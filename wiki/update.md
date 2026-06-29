@@ -96,6 +96,8 @@
 
 - class/push/site_push.py 文件，'https://www.bt.cn' => 'http://www.example.com'
 
+- class/panelModel/publicModel.py 删除 data['dedicated_servicer'] = _config_obj.read_dedicated_servicer()
+
 - script/flush_plugin.py 文件，删除clear_hosts()一行
 
 - script/reload_check.py 文件，在第2行插入sys.exit()

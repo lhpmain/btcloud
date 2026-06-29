@@ -574,7 +574,6 @@ class Api extends BaseController
         if (curl_errno($ch)) {
             return json(['status'=>true, 'msg'=>'', 'data'=>bin2hex('[]')]);
         }
-        curl_close($ch);
         Cache::set($cacheKey, $response, 86400); //缓存一天
 
         return json(json_decode($response, true));

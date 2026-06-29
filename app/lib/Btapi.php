@@ -225,7 +225,6 @@ class Btapi
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         $output = curl_exec($ch);
-        curl_close($ch);
         return $output;
     }
 
@@ -249,17 +248,14 @@ class Btapi
         curl_exec($ch);
 		if (curl_errno($ch)) {
 			$message = curl_error($ch);
-			curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：'.$message);
 		}
 		$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 		if($httpcode>299){
-			curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：HTTPCODE-'.$httpcode);
 		}
-        curl_close($ch);
 		fclose($fp);
         return true;
     }
