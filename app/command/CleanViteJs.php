@@ -148,7 +148,7 @@ class CleanViteJs extends Command
             $flag = true;
         }
     
-        if(strpos($file, '论坛求助')!==false && strpos($file, '/other/customer-qrcode.png')!==false){ //main
+        if(strpos($file, '论坛求助')!==false && strpos($file, '联系人工客服')!==false){ //layout
             $code = $this->getExtendCode($file, '微信公众号', 1);
             $code = $this->getExtendFunction($file, $code);
             $start = strpos($file, $code) - 1;
@@ -158,7 +158,7 @@ class CleanViteJs extends Command
                     break;
                 }
             }
-            $code = $this->getExtendCode($file, '/other/customer-qrcode.png', 2);
+            $code = $this->getExtendCode($file, '联系人工客服', 1);
             $code = $this->getExtendFunction($file, $code);
             $end = strpos($file, $code)+strlen($code);
             $code = substr($file, $start, $end - $start);

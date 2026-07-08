@@ -1539,10 +1539,8 @@ Install_Bt(){
 	wget -O /www/server/panel/init.sh ${download_Url}/install/src/bt7.init -T 15
 	if [ -f "/www/server/panel/config/default_soft_list.conf" ];then
 		\cp -rpa /www/server/panel/config/default_soft_list.conf /www/server/panel/data/softList.conf
-	else
-		wget -O /www/server/panel/data/softList.conf ${download_Url}/install/conf/softListtls10.conf
 	fi
-
+	wget -O /www/server/panel/data/softList.conf ${download_Url}/install/conf/softListtls10.conf
 	rm -rf /www/server/panel/plugin/webssh/
 	rm -f /www/server/panel/class/*.so
 	if [ ! -f /www/server/panel/data/not_workorder.pl ]; then
