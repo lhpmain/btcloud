@@ -57,7 +57,7 @@ class Admin extends BaseController
     {
         $stat = ['total'=>0, 'free'=>0, 'pro'=>0, 'ltd'=>0, 'third'=>0];
         $json_arr = Plugins::get_plugin_list();
-        if($json_arr){
+        if($json_arr && !empty($json_arr['list'])){
             foreach($json_arr['list'] as $plugin){
                 $stat['total']++;
                 if($plugin['type']==10) $stat['third']++;
@@ -113,9 +113,10 @@ class Admin extends BaseController
 
         if(empty($params['username'])) return json(['code'=>-1, 'msg'=>'用户名不能为空']);
 
-        config_set('admin_username', $params['username']);
-
-        if(!empty($params['oldpwd']) && !empty($params['newpwd']) && !empty($params['newpwd2'])){
+        if(!empty($params['oldpwd']) || !empty($params['newpwd']) || !empty($params['newpwd2'])){
+            if(empty($params['oldpwd']) || empty($params['newpwd']) || empty($params['newpwd2'])){
+                return json(['code'=>-1, 'msg'=>'修改密码时请填写完整']);
+            }
             if(config_get('admin_password') != $params['oldpwd']){
                 return json(['code'=>-1, 'msg'=>'旧密码不正确']);
             }
@@ -124,6 +125,7 @@ class Admin extends BaseController
             }
             config_set('admin_password', $params['newpwd']);
         }
+        config_set('admin_username', $params['username']);
         cache('configs', NULL);
         cookie('admin_token', null);
         return json(['code'=>0]);
@@ -136,7 +138,7 @@ class Admin extends BaseController
             $bt_surl = input('post.bt_surl');
             if(!$bt_surl)return json(['code'=>-1, 'msg'=>'参数不能为空']);
             $res = get_curl($bt_surl . 'api/SetupCount');
-            if(strpos($res, 'ok')!==false){
+            if($res !== false && strpos($res, 'ok')!==false){
                 return json(['code'=>0, 'msg'=>'第三方云端连接测试成功！']);
             }else{
                 return json(['code'=>-1, 'msg'=>'第三方云端连接测试失败']);
@@ -225,14 +227,18 @@ class Admin extends BaseController
         if(!$json_arr) return json([]);
 
         $typelist = [];
-        foreach($json_arr['type'] as $row){
-            $typelist[$row['id']] = $row['title'];
+        if(!empty($json_arr['type']) && is_array($json_arr['type'])){
+            foreach($json_arr['type'] as $row){
+                $typelist[$row['id']] = $row['title'];
+            }
         }
 
         $list = [];
+        if(empty($json_arr['list']) || !is_array($json_arr['list'])) return json([]);
         foreach($json_arr['list'] as $plugin){
             if($type > 0 && $plugin['type']!=$type) continue;
             if(!empty($keyword) && $keyword != $plugin['name'] && stripos($plugin['title'], $keyword)===false) continue;
+            if(empty($plugin['versions']) || !is_array($plugin['versions'])) continue;
             $versions = [];
             foreach($plugin['versions'] as $version){
                 $ver = $version['m_version'].'.'.$version['version'];
@@ -250,14 +256,17 @@ class Admin extends BaseController
                     $versions[] = ['status'=>$status, 'type'=>0, 'version'=>$ver];
                 }
             }
-            if($plugin['name'] == 'obs') $plugin['ps'] = substr($plugin['ps'],0,strpos($plugin['ps'],'<a '));
+            if($plugin['name'] == 'obs' && isset($plugin['ps'])){
+                $pos = strpos($plugin['ps'], '<a ');
+                if($pos !== false) $plugin['ps'] = substr($plugin['ps'], 0, $pos);
+            }
             $list[] = [
                 'id' => $plugin['id'],
                 'name' => $plugin['name'],
                 'title' => $plugin['title'],
                 'type' => $plugin['type'],
                 'typename' => isset($typelist[$plugin['type']]) ? $typelist[$plugin['type']] : '未知',
-                'desc' => str_replace('target="_blank"','target="_blank" rel="noopener noreferrer"',$plugin['ps']),
+                'desc' => str_replace('target="_blank"','target="_blank" rel="noopener noreferrer"',$plugin['ps'] ?? ''),
                 'price' => $plugin['price'],
                 'author' => isset($plugin['author']) ? $plugin['author'] : '官方',
                 'versions' => $versions

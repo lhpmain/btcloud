@@ -225,6 +225,7 @@ class Btapi
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         $output = curl_exec($ch);
+        curl_close($ch);
         return $output;
     }
 
@@ -242,16 +243,22 @@ class Btapi
         curl_setopt($ch, CURLOPT_COOKIEJAR, $cookie_file);
         curl_setopt($ch, CURLOPT_COOKIEFILE, $cookie_file);
 		$fp = fopen($localpath, 'w+');
+        if($fp === false){
+            curl_close($ch);
+            throw new Exception('下载文件失败：无法写入本地文件');
+        }
 		curl_setopt($ch, CURLOPT_FILE, $fp);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_exec($ch);
 		if (curl_errno($ch)) {
 			$message = curl_error($ch);
+            curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：'.$message);
 		}
 		$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 		if($httpcode>299){
 			fclose($fp);
 			throw new Exception('下载文件失败：HTTPCODE-'.$httpcode);

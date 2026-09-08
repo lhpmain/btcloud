@@ -52,9 +52,12 @@ class ThirdPlugins
             $fname = $plugin_info['versions'][0]['download'];
             $filemd5 = $plugin_info['versions'][0]['md5'];
             $this->download_plugin_other($fname, $filemd5);
-            if(isset($plugin_info['min_image']) && strpos($plugin_info['min_image'], 'fname=')){
-                $fname = substr($plugin_info['min_image'], strpos($plugin_info['min_image'], '?fname=')+7);
-                $this->download_plugin_other($fname);
+            if(isset($plugin_info['min_image']) && strpos($plugin_info['min_image'], 'fname=') !== false){
+                $query = parse_url($plugin_info['min_image'], PHP_URL_QUERY);
+                parse_str((string)$query, $q);
+                if(!empty($q['fname'])){
+                    $this->download_plugin_other($q['fname']);
+                }
             }
         }else{
             $this->download_plugin_package($plugin_name, $version);
@@ -71,6 +74,10 @@ class ThirdPlugins
 
         if(file_exists($filepath)){
             $handle = fopen($filepath, "rb");
+            if($handle === false){
+                @unlink($filepath);
+                throw new Exception('下载插件包失败，无法读取文件');
+            }
             $file_head = fread($handle, 4);
             fclose($handle);
             if(bin2hex($file_head) === '504b0304'){
@@ -133,7 +140,7 @@ class ThirdPlugins
                 $res = file_get_contents($filepath);
                 $result = json_decode($res, true);
                 @unlink($filepath);
-                throw new Exception('下载插件文件失败：'.($result?$result['msg']:'未知错误'));
+                throw new Exception('下载插件文件失败：'.($result['msg']??'未知错误'));
             }
             if($filemd5 && md5_file($filepath) != $filemd5){
                 $msg = filesize($filepath) < 300 ? file_get_contents($filepath) : '插件文件MD5校验失败';
@@ -193,10 +200,18 @@ class ThirdPlugins
 
     private function curl_download($url, $post, $localpath, $timeout = 300)
     {
+        $dir = dirname($localpath);
+        if(!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)){
+            throw new Exception('下载文件失败：无法创建目录');
+        }
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
 		$fp = fopen($localpath, 'w+');
+        if($fp === false){
+            curl_close($ch);
+            throw new Exception('下载文件失败：无法写入本地文件');
+        }
 		curl_setopt($ch, CURLOPT_FILE, $fp);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
@@ -208,10 +223,12 @@ class ThirdPlugins
         curl_exec($ch);
 		if (curl_errno($ch)) {
 			$message = curl_error($ch);
+            curl_close($ch);
 			fclose($fp);
 			throw new Exception('下载文件失败：'.$message);
 		}
 		$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
 		if($httpcode>299){
 			fclose($fp);
 			throw new Exception('下载文件失败：HTTPCODE-'.$httpcode);

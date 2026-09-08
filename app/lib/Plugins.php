@@ -46,6 +46,7 @@ class Plugins
                 foreach($data['authorization_map'] as $code => &$plugin){
                     if($code != '0' && isset($plugin['end_time'])) $plugin['end_time'] = 0;
                 }
+                unset($plugin);
             }
             if(isset($data['expansions']['mail'])){
                 $data['expansions']['mail']['total'] = 2000000;
@@ -60,8 +61,11 @@ class Plugins
             $data['pro'] = -1;
             $data['ltd'] = strtotime('+10 year');
         }
-        foreach($data['list'] as &$plugin){
-            if(isset($plugin['endtime'])) $plugin['endtime'] = 0;
+        if(!empty($data['list']) && is_array($data['list'])){
+            foreach($data['list'] as &$plugin){
+                if(isset($plugin['endtime'])) $plugin['endtime'] = 0;
+            }
+            unset($plugin);
         }
         $json_file = get_data_dir($os).'config/plugin_list.json';
         if(!file_put_contents($json_file, json_encode($data))){
@@ -204,6 +208,8 @@ class Plugins
     public static function encrypt_plugin_list($list, $server_id, $uid){
         $data = json_encode($list);
         $block_size = 51200;
+        $server_id = (string)$server_id;
+        $uid = (string)$uid;
         $key = md5(substr($server_id, 10, 16) . $uid . $server_id);
         $iv = md5($key . $server_id);
         $key = substr($key, 8, 16);

@@ -16,7 +16,10 @@ class Install extends BaseController
         }
         if(request()->isPost()){
             $mysql_host = input('post.mysql_host', null, 'trim');
-            $mysql_port = intval(input('post.mysql_port', '3306'));
+            $mysql_port = intval(input('post.mysql_port') ?: 3306);
+            if($mysql_port <= 0 || $mysql_port > 65535){
+                $mysql_port = 3306;
+            }
             $mysql_user = input('post.mysql_user', null, 'trim');
             $mysql_pwd = input('post.mysql_pwd', null, 'trim');
             $mysql_name = input('post.mysql_name', null, 'trim');
@@ -47,7 +50,7 @@ class Install extends BaseController
             }
             $DB->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_SILENT);
             $DB->exec("set sql_mode = ''");
-            $DB->exec("set names utf8");
+            $DB->exec("set names utf8mb4");
 
             $sqls=file_get_contents(app()->getRootPath().'install.sql');
             $sqls=explode(';', $sqls);

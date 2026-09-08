@@ -57,9 +57,12 @@ class BtPlugins
             $fname = $plugin_info['versions'][0]['download'];
             $filemd5 = $plugin_info['versions'][0]['md5'];
             $this->download_plugin_other($fname, $filemd5);
-            if(isset($plugin_info['min_image']) && strpos($plugin_info['min_image'], 'fname=')){
-                $fname = substr($plugin_info['min_image'], strpos($plugin_info['min_image'], '?fname=')+7);
-                $this->download_plugin_other($fname);
+            if(isset($plugin_info['min_image']) && strpos($plugin_info['min_image'], 'fname=') !== false){
+                $query = parse_url($plugin_info['min_image'], PHP_URL_QUERY);
+                parse_str((string)$query, $q);
+                if(!empty($q['fname'])){
+                    $this->download_plugin_other($q['fname']);
+                }
             }
         }else{
             $this->download_plugin_package($plugin_name, $version);
@@ -83,10 +86,13 @@ class BtPlugins
                         $zip->close();
                         $main_filepath = $plugins_dir.'/'.$plugin_name.'/'.$plugin_name.'_main.py';
                         if(file_exists($main_filepath) && filesize($main_filepath)>10){
-                            if(!strpos(file_get_contents($main_filepath), 'import ')){ //加密py文件，需要解密
+                            if(strpos(file_get_contents($main_filepath), 'import ') === false){ //加密py文件，需要解密
                                 $this->decode_plugin_main($plugin_name, $version, $main_filepath);
                                 $this->noauth_plugin_main($main_filepath);
-                                $zip->open($filepath, ZipArchive::CREATE);
+                                if($zip->open($filepath) !== true){
+                                    deleteDir($plugins_dir);
+                                    throw new Exception('插件包打开失败');
+                                }
                                 $zip->addFile($main_filepath, $plugin_name.'/'.$plugin_name.'_main.py');
                                 $zip->close();
                             }
@@ -101,7 +107,7 @@ class BtPlugins
                     throw new Exception('下载插件包失败，本地文件不存在');
                 }
             }else{
-                throw new Exception('下载插件包失败：'.($result['msg']?$result['msg']:'未知错误'));
+                throw new Exception('下载插件包失败：'.($result['msg']??'未知错误'));
             }
         }else{
             throw new Exception('下载插件包失败，接口返回错误');
@@ -122,7 +128,7 @@ class BtPlugins
                     throw new Exception('下载插件主程序文件失败，本地文件不存在');
                 }
             }else{
-                throw new Exception('下载插件主程序文件失败：'.($result['msg']?$result['msg']:'未知错误'));
+                throw new Exception('下载插件主程序文件失败：'.($result['msg']??'未知错误'));
             }
         }else{
             throw new Exception('下载插件主程序文件失败，接口返回错误');
@@ -139,7 +145,7 @@ class BtPlugins
                 $this->download_file($filename, $main_filepath);
                 return true;
             }else{
-                throw new Exception('解密插件主程序文件失败：'.($result['msg']?$result['msg']:'未知错误'));
+                throw new Exception('解密插件主程序文件失败：'.($result['msg']??'未知错误'));
             }
         }else{
             throw new Exception('解密插件主程序文件失败，接口返回错误');
@@ -235,7 +241,7 @@ class BtPlugins
                     throw new Exception('下载插件文件失败，本地文件不存在');
                 }
             }else{
-                throw new Exception('下载插件文件失败：'.($result['msg']?$result['msg']:'未知错误'));
+                throw new Exception('下载插件文件失败：'.($result['msg']??'未知错误'));
             }
         }else{
             throw new Exception('下载插件文件失败，接口返回错误');
@@ -255,7 +261,7 @@ class BtPlugins
                 if(strlen($filedata) < 4096 && substr($filedata,0,1)=='{' && substr($filedata,-1,1)=='}'){
                     $arr = json_decode($filedata, true);
                     if($arr){
-                        throw new Exception('获取文件失败：'.($arr['msg']?$arr['msg']:'未知错误'));
+                        throw new Exception('获取文件失败：'.($arr['msg']??'未知错误'));
                     }
                 }
                 if(!$filedata){
@@ -263,7 +269,7 @@ class BtPlugins
                 }
                 file_put_contents($filepath, $filedata);
             }elseif($result){
-                throw new Exception('获取文件失败：'.($result['msg']?$result['msg']:'未知错误'));
+                throw new Exception('获取文件失败：'.($result['msg']??'未知错误'));
             }else{
                 throw new Exception('获取文件失败：未知错误');
             }

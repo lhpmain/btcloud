@@ -55,6 +55,10 @@ class UpdateAll extends Command
         }
 
         $json_arr = Plugins::get_plugin_list($os);
+        if(!$json_arr || empty($json_arr['list']) || !is_array($json_arr['list'])){
+            $output->writeln($os.'插件列表为空');
+            return;
+        }
         //循环下载缺少的插件
         foreach($json_arr['list'] as $plugin){
             if($type == 0 && ($plugin['type']==8 || $plugin['type']==12) || $type == 1 && $plugin['type']==12 || $plugin['type']==10 || $plugin['type']==5) continue;

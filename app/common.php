@@ -103,7 +103,10 @@ function get_curl($url, $post=0, $referer=0, $cookie=0, $header=0, $ua=0, $nobod
 	}
 	curl_setopt($ch, CURLOPT_ENCODING, "gzip");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
 	$ret = curl_exec($ch);
+	curl_close($ch);
 	return $ret;
 }
 
@@ -158,10 +161,10 @@ function real_ip($type=0){
 function getSubstr($str, $leftStr, $rightStr)
 {
 	$left = strpos($str, $leftStr);
+	if($left === false) return '';
 	$start = $left+strlen($leftStr);
 	$right = strpos($str, $rightStr, $start);
-	if($left < 0) return '';
-	if($right>0){
+	if($right !== false){
 		return substr($str, $start, $right-$start);
 	}else{
 		return substr($str, $start);
@@ -171,7 +174,9 @@ function getSubstr($str, $leftStr, $rightStr)
 function checkRefererHost(){
     if(!request()->header('referer'))return false;
     $url_arr = parse_url(request()->header('referer'));
+    if(empty($url_arr['host'])) return false;
     $http_host = request()->header('host');
+    if(!$http_host) return false;
     if(strpos($http_host,':'))$http_host = substr($http_host, 0, strpos($http_host, ':'));
     return $url_arr['host'] === $http_host;
 }
@@ -192,6 +197,7 @@ function checkDomain($domain){
 
 function errorlog($msg){
 	$handle = fopen(app()->getRootPath()."record.txt", 'a');
+	if($handle === false) return;
 	fwrite($handle, date('Y-m-d H:i:s')."\t".$msg."\r\n");
 	fclose($handle);
 }
@@ -213,15 +219,19 @@ function generateKeyPairs(){
 	if(file_exists($public_key_path) && file_exists($private_key_path)){
 		return [file_get_contents($public_key_path), file_get_contents($private_key_path)];
 	}
+	if(!is_dir($pkey_dir) && !mkdir($pkey_dir, 0755, true) && !is_dir($pkey_dir)){
+		return false;
+	}
 	$pkey_config = ['private_key_bits'=>4096];
 	$pkey_res = openssl_pkey_new($pkey_config);
+	if(!$pkey_res) return false;
 	$private_key = '';
-	openssl_pkey_export($pkey_res, $private_key, null, $pkey_config);
+	if(!openssl_pkey_export($pkey_res, $private_key, null, $pkey_config)) return false;
 	$pkey_details = openssl_pkey_get_details($pkey_res);
 	if(!$pkey_details) return false;
 	$public_key = $pkey_details['key'];
-	file_put_contents($public_key_path, $public_key);
-	file_put_contents($private_key_path, $private_key);
+	if(file_put_contents($public_key_path, $public_key) === false) return false;
+	if(file_put_contents($private_key_path, $private_key) === false) return false;
 	return [$public_key, $private_key];
 }
 
@@ -273,30 +283,43 @@ EOF;
 
 	if(!file_put_contents($opensslConfigFile, $opensslConfigContent)) return false;
 
+	$cleanup = function() use ($opensslConfigFile) {
+		if(is_file($opensslConfigFile)) @unlink($opensslConfigFile);
+	};
+
 	// 生成域名证书的私钥和 CSR
 	$domainPrivateKey = openssl_pkey_new([
 		'private_key_bits' => 2048,
 		'private_key_type' => OPENSSL_KEYTYPE_RSA,
 	]);
-	if(!$domainPrivateKey) return false;
+	if(!$domainPrivateKey){
+		$cleanup();
+		return false;
+	}
 
 	$csrConfig = ['digest_alg' => 'sha256', 'config' => $opensslConfigFile];
 
 	$domainCsr = openssl_csr_new([
 		'commonName' => $commonName
 	], $domainPrivateKey, $csrConfig);
-	if(!$domainCsr) return false;
+	if(!$domainCsr){
+		$cleanup();
+		return false;
+	}
 
 	// 生成域名证书
 	$domainCertificate = openssl_csr_sign($domainCsr, $caCert, $caPrivateKey, $validity, $csrConfig);
-	if(!$domainCertificate) return false;
+	if(!$domainCertificate){
+		$cleanup();
+		return false;
+	}
 
 	// 导出域名证书
 	openssl_x509_export($domainCertificate, $certificate);
 	openssl_pkey_export($domainPrivateKey, $privateKey);
 	$certificate .= $caCert;
 
-	unlink($opensslConfigFile);
+	$cleanup();
 
 	return ['cert' => $certificate, 'key' => $privateKey];
 }

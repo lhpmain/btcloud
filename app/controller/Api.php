@@ -12,12 +12,7 @@ class Api extends BaseController
     //获取插件列表
     public function get_plugin_list(){
         if(!$this->checklist()) return json('你的服务器被禁止使用此云端');
-        $record = Db::name('record')->where('ip',$this->clientip)->find();
-        if($record){
-            Db::name('record')->where('id',$record['id'])->update(['usetime'=>date("Y-m-d H:i:s")]);
-        }else{
-            Db::name('record')->insert(['ip'=>$this->clientip, 'addtime'=>date("Y-m-d H:i:s"), 'usetime'=>date("Y-m-d H:i:s")]);
-        }
+        $this->touch_record();
         $json_arr = Plugins::get_plugin_list();
         if(!$json_arr) $json_arr = (object)[];
         return json($json_arr);
@@ -27,14 +22,9 @@ class Api extends BaseController
     public function get_plugin_list_win(){
         if(!$this->checklist()) return json('你的服务器被禁止使用此云端');
         $os_version = input('post.os_version');
-        $serverid = input('post.serverid');
-        $uid = input('post.uid');
-        $record = Db::name('record')->where('ip',$this->clientip)->find();
-        if($record){
-            Db::name('record')->where('id',$record['id'])->update(['usetime'=>date("Y-m-d H:i:s")]);
-        }else{
-            Db::name('record')->insert(['ip'=>$this->clientip, 'addtime'=>date("Y-m-d H:i:s"), 'usetime'=>date("Y-m-d H:i:s")]);
-        }
+        $serverid = input('post.serverid', '');
+        $uid = input('post.uid', '');
+        $this->touch_record();
         $json_arr = Plugins::get_plugin_list('Windows');
         if(!$json_arr) $json_arr = (object)[];
         if($os_version == 'windows_go'){
@@ -46,12 +36,7 @@ class Api extends BaseController
     //获取插件列表(aapanel)
     public function get_plugin_list_en(){
         if(!$this->checklist()) return json('你的服务器被禁止使用此云端');
-        $record = Db::name('record')->where('ip',$this->clientip)->find();
-        if($record){
-            Db::name('record')->where('id',$record['id'])->update(['usetime'=>date("Y-m-d H:i:s")]);
-        }else{
-            Db::name('record')->insert(['ip'=>$this->clientip, 'addtime'=>date("Y-m-d H:i:s"), 'usetime'=>date("Y-m-d H:i:s")]);
-        }
+        $this->touch_record();
         $json_arr = Plugins::get_plugin_list('en');
         if(!$json_arr) $json_arr = (object)[];
         return json($json_arr);
@@ -120,7 +105,18 @@ class Api extends BaseController
         }elseif(file_exists($filepath)){
             $zip = new \ZipArchive;
             if ($zip->open($filepath) === true){
-                echo $zip->getFromName($plugin_name.'/'.$plugin_name.'_main.py');
+                $content = $zip->getFromName($plugin_name.'/'.$plugin_name.'_main.py');
+                $zip->close();
+                if($content === false || $content === ''){
+                    return json(['status'=>false, 'msg'=>'插件包中不存在该主文件']);
+                }
+                $filename = $plugin_name.'_main.py';
+                ob_clean();
+                header("Content-Type: application/octet-stream");
+                header("Content-Disposition: attachment; filename=\"" . str_replace(['"', "\r", "\n"], '', $filename) . "\"");
+                header("Content-Length: ".strlen($content));
+                echo $content;
+                exit;
             }else{
                 return json(['status'=>false, 'msg'=>'插件包解压缩失败']);
             }
@@ -138,10 +134,18 @@ class Api extends BaseController
                 return json(['status'=>false, 'msg'=>'参数不能为空']);
             }
         }
-        if(strpos(dirname($fname),'.')!==false)return json(['status'=>false, 'msg'=>'参数不正确']);
+        $fname = str_replace('\\', '/', $fname);
+        if($fname === '' || strpos($fname, '..') !== false || strpos($fname, "\0") !== false || preg_match('#^(?:[a-zA-Z]:)?/#', $fname)){
+            return json(['status'=>false, 'msg'=>'参数不正确']);
+        }
         if(!$this->checklist()) return json(['status'=>false, 'msg'=>'你的服务器被禁止使用此云端']);
-        $filepath = get_data_dir().'plugins/other/'.$fname;
-        if(file_exists($filepath)){
+        $basedir = realpath(get_data_dir().'plugins/other');
+        if($basedir === false){
+            return json(['status'=>false, 'msg'=>'云端不存在该插件文件']);
+        }
+        $filepath = $basedir . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $fname);
+        $real = (file_exists($filepath) && is_file($filepath)) ? realpath($filepath) : false;
+        if($real && str_starts_with($real, $basedir . DIRECTORY_SEPARATOR)){
             $filename = basename($fname);
             $this->output_file($filepath, $filename);
         }else{
@@ -185,7 +189,7 @@ class Api extends BaseController
             $version = config_get('new_version_win');
             $data = [
                 [
-                    'title' => 'Linux面板'.$version,
+                    'title' => 'Windows面板'.$version,
                     'body' => config_get('update_msg_win'),
                     'addtime' => config_get('update_date_win')
                 ]
@@ -221,10 +225,12 @@ class Api extends BaseController
     public function get_panel_version(){
         $version = config_get('new_version');
         $file = app()->getRootPath().'public/install/update/LinuxPanel-'.$version.'.zip';
-        $hash = hash_file('sha256', $file);
+        if(!is_file($file)){
+            return json(['version' => $version, 'hash' => '', 'update_time' => 0]);
+        }
         $data = [
             'version' => $version,
-            'hash' => $hash,
+            'hash' => hash_file('sha256', $file),
             'update_time' => filemtime($file),
         ];
         return json($data);
@@ -422,7 +428,7 @@ class Api extends BaseController
         $domain = input('post.domain',null,'trim');
         $ssl = input('post.ssl/d');
         if(!$domain) return json(['status'=>false, 'msg'=>'域名不能为空']);
-        if(!strpos($domain,'.')) return json(['status'=>false, 'msg'=>'域名格式不正确']);
+        if(strpos($domain,'.') === false) return json(['status'=>false, 'msg'=>'域名格式不正确']);
         $domain = str_replace('*.','',$domain);
         $ip = gethostbyname($domain);
         if(!$ip || $ip == $domain){
@@ -469,10 +475,9 @@ class Api extends BaseController
 
     //绑定账号
     public function get_auth_token(){
-        if(!input('?post.data')) return json(['status'=>false, 'msg'=>'参数不能为空']);
-        $reqData = hex2bin(input('post.data'));
-        parse_str($reqData, $arr);
-        $serverid = $arr['serverid'];
+        $arr = $this->parse_hex_post();
+        if($arr === false) return json(['status'=>false, 'msg'=>'参数不能为空']);
+        $serverid = $arr['serverid'] ?? '';
         $userinfo = ['uid'=>1, 'username'=>'Administrator', 'address'=>'127.0.0.1', 'serverid'=>$serverid, 'access_key'=>random(48), 'secret_key'=>random(48), 'ukey'=>md5(time()), 'state'=>1];
         $data = bin2hex(json_encode($userinfo));
         return json(['status'=>true, 'msg'=>'登录成功！', 'data'=>$data]);
@@ -480,10 +485,9 @@ class Api extends BaseController
 
     //绑定账号新
     public function authorization_login(){
-        if(!input('?post.data')) return json(['status'=>false, 'msg'=>'参数不能为空']);
-        $reqData = hex2bin(input('post.data'));
-        parse_str($reqData, $arr);
-        $serverid = $arr['serverid'];
+        $arr = $this->parse_hex_post();
+        if($arr === false) return json(['status'=>false, 'msg'=>'参数不能为空']);
+        $serverid = $arr['serverid'] ?? '';
         $userinfo = ['uid'=>1, 'username'=>'Administrator', 'ip'=>'127.0.0.1', 'server_id'=>$serverid, 'access_key'=>random(48), 'secret_key'=>random(48)];
         $data = bin2hex(json_encode($userinfo));
         return json(['status'=>true, 'err_no'=>0, 'msg'=>'账号绑定成功', 'data'=>$data]);
@@ -491,26 +495,26 @@ class Api extends BaseController
 
     //刷新授权信息
     public function authorization_info(){
-        if(!input('?post.data')) return json(['status'=>false, 'msg'=>'参数不能为空']);
-        $reqData = hex2bin(input('post.data'));
-        parse_str($reqData, $arr);
+        $arr = $this->parse_hex_post();
+        if($arr === false) return json(['status'=>false, 'msg'=>'参数不能为空']);
         $id = isset($arr['id'])&&$arr['id']>0?$arr['id']:1;
-        $userinfo = ['id'=>$id, 'product'=>$arr['product'], 'status'=>2, 'clients'=>9999, 'durations'=>0, 'end_time'=>strtotime('+10 year')];
+        $userinfo = ['id'=>$id, 'product'=>$arr['product'] ?? '', 'status'=>2, 'clients'=>9999, 'durations'=>0, 'end_time'=>strtotime('+10 year')];
         $data = bin2hex(json_encode($userinfo));
         return json(['status'=>true, 'err_no'=>0, 'data'=>$data]);
     }
 
     //刷新授权信息
     public function update_license(){
-        if(!input('?post.data')) return json(['status'=>false, 'msg'=>'参数不能为空']);
-        $reqData = hex2bin(input('post.data'));
-        parse_str($reqData, $arr);
+        $arr = $this->parse_hex_post();
+        if($arr === false) return json(['status'=>false, 'msg'=>'参数不能为空']);
         if(!isset($arr['product']) || !isset($arr['serverid'])) return json(['status'=>false, 'msg'=>'缺少参数']);
 
         $license_data = ['product'=>$arr['product'], 'uid'=>random(32), 'phone'=>'138****8888', 'auth_id'=>random(32), 'server_id'=>substr($arr['serverid'], 0, 32), 'auth'=>['apis'=>[], 'menu'=>[], 'extra'=>['type'=>3,'location'=>-1,'smart_cc'=>-1,'site'=>0]], 'pages'=>[], 'end_time'=>strtotime('+10 year')];
         $json = json_encode($license_data);
 
-        [$public_key, $private_key] = generateKeyPairs();
+        $keys = generateKeyPairs();
+        if(!$keys) return json(['status'=>false, 'msg'=>'生成密钥失败']);
+        [$public_key, $private_key] = $keys;
         $public_key = pemToBase64($public_key);
 
         $key1 = random(32);
@@ -553,7 +557,11 @@ class Api extends BaseController
     
         // 尝试从缓存获取
         if (Cache::has($cacheKey)) {
-            return json(json_decode(Cache::get($cacheKey), true));
+            $cached = Cache::get($cacheKey);
+            $decoded = is_string($cached) ? json_decode($cached, true) : $cached;
+            if(is_array($decoded)){
+                return json($decoded);
+            }
         }
         $url = 'https://api.bt.cn/bt_waf/get_malicious_ip';
         $postData = json_encode([
@@ -565,18 +573,23 @@ class Api extends BaseController
         curl_setopt($ch, CURLOPT_POST, 1);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Content-Length: ' . strlen($postData)
         ]);
 
         $response = curl_exec($ch);
-        if (curl_errno($ch)) {
+        $errno = curl_errno($ch);
+        curl_close($ch);
+        $result = json_decode((string)$response, true);
+        if ($errno || !is_array($result)) {
             return json(['status'=>true, 'msg'=>'', 'data'=>bin2hex('[]')]);
         }
         Cache::set($cacheKey, $response, 86400); //缓存一天
 
-        return json(json_decode($response, true));
+        return json($result);
     }
 
     public function get_ip_info(){
@@ -664,9 +677,11 @@ class Api extends BaseController
 
     //检查是否国内IP
     public function check_cnip(){
-        $clientip = bindec(decbin(ip2long($this->clientip)));
+        $long = ip2long($this->clientip);
+        if($long === false) return 'False';
+        $clientip = (int)sprintf('%u', $long);
         $json_file = app()->getBasePath().'lib/cn.json';
-        $arr = json_decode(file_get_contents($json_file), true);
+        $arr = json_decode((string)@file_get_contents($json_file), true);
         if(!$arr) return 'False';
         foreach($arr as $ip_arr){
             if($clientip >= $ip_arr[0] && $clientip <= $ip_arr[1]){
@@ -700,24 +715,54 @@ class Api extends BaseController
         }
     }
 
+    //记录使用IP（并发下避免唯一索引冲突）
+    private function touch_record(){
+        $now = date("Y-m-d H:i:s");
+        Db::name('record')->duplicate(['usetime' => $now])->insert([
+            'ip' => $this->clientip,
+            'addtime' => $now,
+            'usetime' => $now,
+        ]);
+    }
+
+    //解析 hex 编码的 POST data
+    private function parse_hex_post(){
+        if(!input('?post.data')) return false;
+        $hex = input('post.data');
+        if(!is_string($hex) || $hex === '' || (strlen($hex) % 2) !== 0 || !ctype_xdigit($hex)) return false;
+        $reqData = hex2bin($hex);
+        if($reqData === false) return false;
+        parse_str($reqData, $arr);
+        return is_array($arr) ? $arr : false;
+    }
+
     //下载大文件
     private function output_file($filepath, $filename){
+        if(!is_file($filepath) || !is_readable($filepath)){
+            return json(['status'=>false, 'msg'=>'云端不存在该插件文件']);
+        }
         $filesize = filesize($filepath);
         $filemd5 = md5_file($filepath);
+        $safeName = str_replace(['"', "\r", "\n"], '', $filename);
 
         ob_clean();
         header("Content-Type: application/octet-stream");
-        header("Content-Disposition: attachment; filename={$filename}.zip");
+        header("Content-Disposition: attachment; filename=\"{$safeName}\"");
         header("Content-Length: {$filesize}");
         header("File-size: {$filesize}");
         header("Content-md5: {$filemd5}");
 
         $read_buffer = 1024 * 100;
         $handle = fopen($filepath, 'rb');
+        if($handle === false){
+            exit;
+        }
         $sum_buffer = 0;
-        while(!feof($handle) && $sum_buffer<$filesize) {
-            echo fread($handle, min($read_buffer, ($filesize - $sum_buffer) + 1));
-            $sum_buffer += $read_buffer;
+        while(!feof($handle) && $sum_buffer < $filesize) {
+            $chunk = fread($handle, min($read_buffer, $filesize - $sum_buffer));
+            if($chunk === false || $chunk === '') break;
+            echo $chunk;
+            $sum_buffer += strlen($chunk);
             flush();
         }
         fclose($handle);
@@ -731,8 +776,10 @@ class Api extends BaseController
             $content.=file_get_contents('php://input')."\r\n";
         }
         $handle = fopen(app()->getRootPath()."record.txt", 'a');
-        fwrite($handle, $content."\r\n");
-        fclose($handle);
+        if($handle !== false){
+            fwrite($handle, $content."\r\n");
+            fclose($handle);
+        }
         return json(['status'=>false, 'msg'=>'不支持当前操作']);
     }
 

@@ -13,10 +13,13 @@ class AuthAdmin
         if($cookie){
             $token=authcode($cookie, 'DECODE', config_get('syskey', ''));
             if($token){
-                list($user, $sid, $expiretime) = explode("\t", $token);
-                $session=md5(config_get('admin_username').config_get('admin_password'));
-                if($session==$sid && $expiretime>time()) {
-                    $islogin = true;
+                $parts = explode("\t", $token);
+                if(count($parts) === 3){
+                    [$user, $sid, $expiretime] = $parts;
+                    $session=md5(config_get('admin_username').config_get('admin_password'));
+                    if($session==$sid && $expiretime>time()) {
+                        $islogin = true;
+                    }
                 }
             }
         }
