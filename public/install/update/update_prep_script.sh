@@ -21,7 +21,7 @@ PANEL_UPDATING_VERSION_FILE="${PANEL_PATH}/updating_version.pl"
 
 # 定义版本控制顺序（按时间顺序排列，新版本放后面）
 # 会自动扫描所有 prepare_X_X 和 after_X_X 格式的函数
-ALL_VERSIONS=("11.3" "11.5" "11.6" "11.7" "11.8" "13.0")
+ALL_VERSIONS=("11.3" "11.5" "11.6" "11.7" "11.8" "13.0" "13.1" "13.1")
 
 # 输出成功信息, 必须输出 "BT-Panel Update Ready" 才证明预处理成功
 function success() {

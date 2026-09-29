@@ -26,8 +26,6 @@
 
 - 全局搜索替换 https://download.bt.cn/install/update6.sh => http://www.example.com/install/update6.sh
 
-  http://download.bt.cn/install/update6.sh => http://www.example.com/install/update6.sh
-
   http://download.bt.cn/install/update/ => http://www.example.com/install/update/
 
 - 搜索并删除提交异常报告的代码 bt_error/index.php
@@ -98,7 +96,7 @@
 
 - class/push/site_push.py 文件，'https://www.bt.cn' => 'http://www.example.com'
 
-- class/panelModel/publicModel.py 删除 data['dedicated_servicer'] = _config_obj.read_dedicated_servicer()
+- class/safeModel/ipsModel.py  api/v2/panel/get_ip_info改成api/panel/get_ip_info
 
 - script/flush_plugin.py 文件，删除clear_hosts()一行
 
